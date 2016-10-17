@@ -1,3 +1,4 @@
+[![Build Status](https://travis-ci.org/butterandfly/tk-api-behavior.svg?branch=master)](https://travis-ci.org/butterandfly/tk-api-behavior)
 # \<tk-api-behavior\>
 
 该组件提供制作tk-api元素的各种方法。
