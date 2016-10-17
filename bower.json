@@ -1,6 +1,6 @@
 {
   "name": "tk-api-behavior",
-  "version": '0.1.0',
+  "version": "0.1.0",
   "main": "tk-api-behavior.html",
   "dependencies": {
     "polymer": "Polymer/polymer#^1.4.0"
