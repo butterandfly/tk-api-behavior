@@ -1,0 +1,20 @@
+{
+  "name": "tk-api-behavior",
+  "version": "0.1.0",
+  "description": "",
+  "main": ".eslintrc.js",
+  "directories": {
+    "test": "test"
+  },
+  "scripts": {
+    "test": "wct -l chrome",
+    "lint": "./node_modules/eslint/bin/eslint.js test/**/*.html demo/**/*.html ./*.html"
+  },
+  "author": "butterandfly",
+  "license": "ISC",
+  "devDependencies": {
+    "eslint": "^3.8.0",
+    "eslint-config-google": "^0.6.0",
+    "eslint-plugin-html": "^1.5.3"
+  }
+}

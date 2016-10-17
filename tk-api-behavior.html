@@ -1,0 +1,333 @@
+<link rel="import" href="../../../bower_components/polymer/polymer.html">
+
+<!--
+## `tk-api-behavior`
+
+该组件提供制作tk-api元素的各种方法。
+主要是将：`url + url params + query params + body（甚至headers）`的复杂性封装为`apiAction + apiArgs`。
+
+继承者需要实现`actionMeta`属性，如：
+```
+get actionMeta() {
+  return this.createRestfulActionMeta('table');
+}
+```
+
+此外还提供
+- lastStatusCode
+- 从全局设置里面得到host、port等，将其自动拼接在url上
+- 一些必要的属性如loading、lastResponse等（从iron-ajax绑定）
+
+### Action Meta
+该对象标明了每个Action的行为，格式如下：
+```
+{
+  find: ['GET', '/users', ''],
+  findById: ['GET', '/users/:id', 'url=id']
+}
+```
+
+Key是action名，Value必须是一个数组，该数组标明了其行为。
+数组的第一个元素是请求方法；第二个元素是url，可使用参数格式；第三个元素的apiArgs的参数放置表达式。
+如`['GET', '/users', '']`，就是发一个url为`/users`的GET请求；
+`['GET', '/users/:id', 'url=id']`，发一个GET请求，url为`/users/:id`，后面的`:id`会被apiArgs对象里id的值覆盖。
+
+### 参数放置表达式
+`url=id,body=table`，意思是把apiArgs里的id作为url里的参数，table作为body，剩下其它的作为query里的参数；
+例如若url为/table/:id，apiArgs为`{id: 1, table: {content: 'hihi'}, limit: 2}`，则最后生成的url是`/table/1?limit=2`，body是`{content: 'hihi'}`。
+
+@group rcfg
+@demo demo/index.html
+-->
+
+<script>
+  /**
+   * @polymerBehavior tkApiBehavior
+   */
+  Polymer.tkApiBehavior = {
+
+    /**
+     * 请求出错时触发。
+     *
+     * @event tk-api-error
+     * @event error
+     */
+
+    /**
+     * 请求成功时触发。
+     *
+     * @event tk-api-response
+     * @event response
+     */
+
+    properties: {
+
+      /**
+       * 存储config的关键字；若设置为myConfig，则保存在window.myConfig下
+       */
+      configKey: {
+        type: String,
+        value: 'TkApiConfig'
+      },
+
+      loading: {
+        type: Boolean,
+        notify: true
+      },
+
+      /**
+       * 调用的action
+       */
+      apiAction: {
+        type: String
+      },
+
+      /**
+       * 请求参数，根据action对应填写
+       */
+      apiArgs: {
+        type: Object,
+        value: {}
+      },
+
+      /**
+       * 请求成功时返回的结果。
+       */
+      lastResponse: {
+        type: Array,
+        notify: true
+      },
+
+      /**
+       * 请求失败时返回的结果。
+       */
+      lastError: {
+        type: Object,
+        notify: true
+      }
+
+      /**
+       * 最后一个response的statusCode
+       */
+
+    },
+
+    listeners: {
+      'ajax.response': '_onResponse',
+      'ajax.error': '_onError'
+    },
+
+    get apiConfig() {
+      return window[this.configKey];
+    },
+
+    /**
+     * 得到元素内部的`<iron-ajax>`。必须将iron-ajax的id设置为'ajax'
+     * @return {HTMLElement} ironAjax元素
+     */
+    get ironAjax() {
+      return this.$$('iron-ajax');
+    },
+
+    /**
+     * 构建基础url
+     * @return {string} baseUrl
+     */
+    buildBaseUrl: function() {
+      let apiConfig = this.apiConfig;
+      if (!apiConfig) return '';
+
+      var protocol = apiConfig.protocol || '';
+      var domain = apiConfig.domain || '';
+      var port = apiConfig.port || '';
+      var prefix = apiConfig.prefix || '';
+
+      if (!domain) {
+        return prefix;
+      }
+
+      if (port) {
+        port = ':' + port;
+      }
+
+      return protocol + domain + port + prefix;
+    },
+
+    buildUrlByUrlParams(urlTpl, urlParmas) {
+      let url = urlTpl.replace(/(:[A-Za-z0-9]+)/g, match => {
+        return urlParmas[match.slice(1)];
+      });
+
+      return url;
+    },
+
+    // 请求出错时，触发`tk-api-error`事件。
+    _onError: function(event) {
+      var err = event.detail;
+      this.fire('tk-api-error', err, {bubbles: false});
+    },
+
+    // 请求成功时，触发`tk-api-response`事件。
+    _onResponse: function(event) {
+      let msg = event.detail;
+      this.fire('tk-api-response', msg, {bubbles: false});
+    },
+
+    // 解释express，并根据apiArgs，返回object。
+    // {urlParams, body, queryParams}
+    _pickleExpress(exp) {
+      let expObject = {};
+      let apiArgs = this.apiArgs || {};
+
+      let eL = exp.split(',');
+      eL.forEach(item => {
+        if (!item) return;
+
+        let uL = item.split('=');
+        if (uL.length !== 2) {
+          console.error('actionExpress语法错误：' + item);
+        }
+        let type = uL[0];
+
+        if (type === 'body') {
+          expObject.body = apiArgs[uL[1]];
+          delete apiArgs[uL[1]];
+        }
+
+        if (type === 'url') {
+          let paramKeys = uL[1].split('+');
+          let urlParam = {};
+          paramKeys.forEach(k => {
+            if (!k) return;
+
+            urlParam[k] = apiArgs[k];
+            delete apiArgs[k];
+          });
+          expObject.urlParams = urlParam;
+        }
+      });
+
+      expObject.queryParams = apiArgs;
+      return expObject;
+    },
+
+    // 检查actionMeta是否正确，并解构。
+    // 若有遗漏，返回false
+    // 返回Object：{method, urlTpl, exp}
+    _destructActionMeta() {
+      let actionMeta = this.actionMeta[this.apiAction];
+      if (!actionMeta) {
+        console.warn('不存在apiAction：' + this.apiAction);
+        return false;
+      }
+
+      let method = actionMeta[0];
+      if (!method) {
+        console.warn('action meta缺少method' + this.apiAction);
+        return false;
+      }
+
+      let urlTpl = actionMeta[1];
+      if (!urlTpl) {
+        console.warn('action meta缺少method' + this.apiAction);
+        return false;
+      }
+
+      let exp = actionMeta[2];
+      if (!exp && exp !== '') {
+        console.warn('action meta缺少express' + this.apiAction);
+        return false;
+      }
+
+      return {
+        method: method,
+        urlTpl: urlTpl,
+        exp: exp
+      };
+    },
+
+    /**
+     * 执行Api
+     * @param {Object} apiArgs 若存在，则会覆盖掉this.apiArgs
+     */
+    do(apiArgs) {
+      if (apiArgs) {
+        this.apiArgs = apiArgs;
+      }
+
+      let destructed = this._destructActionMeta();
+      if (!destructed) return;
+
+      let urlTpl = destructed.urlTpl;
+      let exp = destructed.exp;
+
+      let ajax = this.$.ajax;
+      ajax.method = destructed.method;
+
+      if (typeof exp === 'function') {
+        let f = exp.bind(this);
+        f(ajax);
+      } else {
+        let expObj = this._pickleExpress(destructed.exp);
+
+        // 构建url
+        let url = this.buildBaseUrl();
+        if (expObj.urlParams) {
+          url += this.buildUrlByUrlParams(urlTpl, expObj.urlParams);
+        } else {
+          url += urlTpl;
+        }
+        ajax.url = url;
+
+        // 设置body
+        if (expObj.body) {
+          ajax.body = expObj.body;
+        }
+
+        // 设置query params
+        ajax.params = expObj.queryParams;
+      }
+
+      this.beforeGenerateRequest(ajax);
+      ajax.generateRequest();
+    },
+
+    /**
+     * @desc 该方法应被实现。会在`ajax.generateRequest()`前执行。
+     * @param {HTMLElement} ajax iron-ajax元素
+     */
+    beforeGenerateRequest(ajax) {
+
+    },
+
+    /**
+     * @desc 应被继承者覆盖，标明各种action对应的行为。
+     * @return {Object} actionMeta action的行为信息
+     */
+
+    /**
+     * @desc 创建一个通用的restful的actionMeta
+     * 包含一下5个action：
+     * - find，生成的url为`/${res}`
+     * - create，apiArgs必须包含${res}，生成的url为`/${res}`
+     * - findById，apiArgs必须包含id，生成的url为`/${res}/${apiArgs.id}`
+     * - updateById，apiArgs必须包含id、${res}，生成的url为`/${res}/${apiArgs.id}`，body为`apiArgs[res]`
+     * - removeById，apiArgs必须包含id，生成的url为`/${res}/${apiArgs.id}`
+     * @param {string} res 资源名称
+     * @return {Object} actionMeta
+     */
+    createRestfulActionMeta(res) {
+      let resUrl = `/${res}`;
+      let resIdUrl = resUrl + '/:id';
+
+      return {
+        find: ['GET', resUrl, ''],
+        create: ['POST', resUrl, `body=${res}`],
+        findById: ['GET', resIdUrl, 'url=id'],
+        updateById: ['PUT', resIdUrl, `url=id,body=${res}`],
+        removeById: ['DELETE', resIdUrl, 'url=id']
+      };
+    }
+
+  };
+</script>

@@ -1,0 +1,247 @@
+<html>
+  <head>
+    <meta name="viewport" content="width=device-width, minimum-scale=1.0, initial-scale=1.0, user-scalable=yes">
+    <title>tk-api-behavior</title>
+
+    <script src="../../webcomponentsjs/webcomponents-lite.js"></script>
+    <script src="../../web-component-tester/browser.js"></script>
+
+    <link rel="import" href="../tk-api-behavior.html">
+
+  </head>
+  <body>
+
+  <script>
+    suite('tkApiBehavior tests', function() {
+      let imp;
+
+      setup(function() {
+        imp = Object.create(Polymer.tkApiBehavior);
+        let ajax = {generateRequest: () => {}};
+        imp.configKey = 'TkApiConfig';
+        imp.$ = {ajax: ajax};
+        imp.$$ = function() {
+          return ajax;
+        };
+      });
+
+      teardown(function() {
+        window.TkApiConfig = undefined;
+      });
+
+      test('Get config with the custom "configKey"', () => {
+        window.myConfig = {token: '1'};
+        imp.configKey = 'myConfig';
+
+        assert(imp.apiConfig.token, '1');
+        window.myConfig = undefined;
+      });
+
+      test('"apiConfig" will get the global api config', function() {
+        window.TkApiConfig = {
+          domain: 'localhost'
+        };
+
+        assert.ok(imp.apiConfig);
+        assert.equal(imp.apiConfig.domain, 'localhost');
+      });
+
+      test('"buildBaseUrl" with no api config', function() {
+        assert.equal(imp.buildBaseUrl(), '');
+      });
+
+      test('"buildBaseUrl" with domain & host set', function() {
+        window.TkApiConfig = {
+          domain: '10.10.10.1',
+          port: '8080'
+        };
+        assert.equal(imp.buildBaseUrl(), '10.10.10.1:8080');
+      });
+
+      test('"buildUrlByUrlParams" function', function() {
+        let url = imp.buildUrlByUrlParams('/rest/:id', {});
+        assert.equal(url, '/rest/undefined');
+
+        url = imp.buildUrlByUrlParams('/rest/:id', {id: 1});
+        assert.equal(url, '/rest/1');
+
+        url = imp.buildUrlByUrlParams('/rest/:id/:action', {id: 1, action: 'do'});
+        assert.equal(url, '/rest/1/do');
+      });
+
+      test('_destructActionMeta with unexist/wrong action', function() {
+        imp.actionMeta = {};
+        imp.apiAction = 'find';
+        assert.notOk(imp._destructActionMeta());
+
+        imp.actionMeta = {find: ''};
+        imp.apiAction = 'find';
+        assert.notOk(imp._destructActionMeta());
+
+        imp.actionMeta = {find: ['GET']};
+        imp.apiAction = 'find';
+        assert.notOk(imp._destructActionMeta());
+
+        imp.actionMeta = {find: ['GET', '']};
+        imp.apiAction = 'find';
+        assert.notOk(imp._destructActionMeta());
+      });
+
+      test('_destructActionMeta with correct action', function() {
+        imp.actionMeta = {find: ['GET', '/test/:id', '']};
+        imp.apiAction = 'find';
+        assert.equal(imp._destructActionMeta().method, 'GET');
+        assert.equal(imp._destructActionMeta().exp, '');
+        assert.equal(imp._destructActionMeta().urlTpl, '/test/:id');
+      });
+
+      test('do', function() {
+        imp.apiAction = 'find';
+        imp.actionMeta = {find: ['GET', '/test', '']};
+        imp.apiArgs = {
+          name: 'myName',
+          age: 16
+        };
+
+        let ajax = imp.$.ajax;
+        let mockAjax = sinon.mock(ajax);
+        mockAjax.expects('generateRequest').once().returns(function() {});
+
+        imp.do();
+        assert.equal(ajax.url, '/test');
+        assert.equal(ajax.params.age, 16);
+        assert.equal(ajax.params.name, 'myName');
+        assert.notOk(ajax.body);
+
+        mockAjax.verify();
+      });
+
+      test('do with id', function() {
+        imp.apiAction = 'findById';
+        imp.actionMeta = {findById: ['GET', '/rest/:id', 'url=id']};
+        imp.apiArgs = {
+          id: 'someid'
+        };
+
+        let ajax = imp.$.ajax;
+
+        imp.do();
+        assert.notOk(ajax.body);
+        assert.equal(ajax.url, '/rest/someid');
+      });
+
+      test('do with custom function instead of action express', function() {
+        imp.apiAction = 'myf';
+        imp.actionMeta = {myf: ['GET', '/test', function(ajax) {
+          ajax.url = 'tail';
+          ajax.body = 'testbody';
+        }]};
+
+        let ajax = imp.$.ajax;
+
+        imp.do();
+        assert.equal(ajax.body, 'testbody');
+        assert.equal(ajax.url, 'tail');
+      });
+
+      test('"beforeGenerateRequest"', function() {
+        imp.apiAction = 'find';
+        imp.actionMeta = {find: ['GET', '/rest', '']};
+        imp.beforeGenerateRequest = function(ajax) {
+          ajax.url = '/newurl';
+        };
+
+        let ajax = imp.$.ajax;
+
+        imp.do();
+        assert.notOk(ajax.body);
+        assert.equal(ajax.url, '/newurl');
+      });
+
+      test('"createRestfulActionMeta"', () => {
+        let actionMeta = imp.createRestfulActionMeta('tabledoc');
+        assert.ok(actionMeta);
+
+        assert.equal(actionMeta.find[0], 'GET');
+        assert.equal(actionMeta.find[1], '/tabledoc');
+        assert.equal(actionMeta.find[2], '');
+
+        assert.equal(actionMeta.create[0], 'POST');
+        assert.equal(actionMeta.create[1], '/tabledoc');
+        assert.equal(actionMeta.create[2], 'body=tabledoc');
+
+        assert.equal(actionMeta.findById[0], 'GET');
+        assert.equal(actionMeta.findById[1], '/tabledoc/:id');
+        assert.equal(actionMeta.findById[2], 'url=id');
+
+        assert.equal(actionMeta.updateById[0], 'PUT');
+        assert.equal(actionMeta.updateById[1], '/tabledoc/:id');
+        assert.equal(actionMeta.updateById[2], 'url=id,body=tabledoc');
+
+        assert.equal(actionMeta.removeById[0], 'DELETE');
+        assert.equal(actionMeta.removeById[1], '/tabledoc/:id');
+        assert.equal(actionMeta.removeById[2], 'url=id');
+      });
+    });
+
+    suite('"_pickleExpress" function', function() {
+      let imp;
+
+      setup(function() {
+        imp = Object.create(Polymer.tkApiBehavior);
+      });
+
+      test('"_pickleExpress" with blank string', function() {
+        imp.apiArgs = {};
+        let exp = '';
+        let result = imp._pickleExpress(exp);
+
+        assert.notOk(result.urlParams);
+        assert.equal(Object.keys(result.queryParams).length, 0);
+        assert.notOk(result.body);
+
+        imp.apiArgs = {
+          name: 'myName',
+          age: 16
+        };
+        result = imp._pickleExpress(exp);
+
+        assert.notOk(result.urlParams);
+        assert.equal(Object.keys(result.queryParams).length, 2);
+        assert.notOk(result.body);
+      });
+
+      test('"_pickleExpress" with url indicated', function() {
+        imp.apiArgs = {id: 'testid'};
+        let exp = 'url=id';
+        let result = imp._pickleExpress(exp);
+
+        assert.equal(result.urlParams.id, 'testid');
+        assert.equal(Object.keys(result.queryParams).length, 0);
+        assert.notOk(result.body);
+      });
+
+      test('"_pickleExpress" with body indicated', function() {
+        imp.apiArgs = {rest: 'testbody'};
+        let exp = 'body=rest';
+        let result = imp._pickleExpress(exp);
+
+        assert.notOk(result.urlParams);
+        assert.equal(Object.keys(result.queryParams).length, 0);
+        assert.equal(result.body, 'testbody');
+      });
+
+      test('"_pickleExpress" with both url and body indicated', function() {
+        imp.apiArgs = {rest: 'testbody', id: 'testid'};
+        let exp = 'url=id,body=rest';
+        let result = imp._pickleExpress(exp);
+
+        assert.equal(result.urlParams.id, 'testid');
+        assert.equal(Object.keys(result.queryParams).length, 0);
+        assert.equal(result.body, 'testbody');
+      });
+    });
+  </script>
+
+  </body>
+</html>

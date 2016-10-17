@@ -1,0 +1,39 @@
+<link rel="import" href="../../polymer/polymer.html">
+<link rel="import" href="../../iron-ajax/iron-ajax.html">
+
+<link rel="import" href="../tk-api-behavior.html">
+
+<dom-module id="demo-api">
+  <template>
+    <style>
+      :host {
+        display: none;
+      }
+    </style>
+
+    <iron-ajax id="ajax"
+               loading="{{loading}}"
+               last-response="{{lastResponse}}"
+               last-error="{{lastError}}">
+    </iron-ajax>
+
+  </template>
+
+</dom-module>
+<script>
+  Polymer({
+
+    is: 'demo-api',
+
+    behaviors: [
+      Polymer.tkApiBehavior
+    ],
+
+    /**
+     * 包含通用的restful方法
+     */
+    get actionMeta() {
+      return this.createRestfulActionMeta('table');
+    }
+  });
+</script>

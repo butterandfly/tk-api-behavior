@@ -1,0 +1,32 @@
+<!doctype html>
+<html>
+  <head>
+    <title>tk-api-behavior demo</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, minimum-scale=1.0, initial-scale=1, user-scalable=yes">
+    <script src="../../webcomponentsjs/webcomponents-lite.js"></script>
+
+    <link rel="import" href="../../iron-demo-helpers/demo-pages-shared-styles.html">
+    <link rel="import" href="../../iron-demo-helpers/demo-snippet.html">
+
+    <link rel="import" href="./demo-api.html">
+
+    <style is="custom-style" include="demo-pages-shared-styles">
+    </style>
+  </head>
+  <body>
+
+    <div class="vertical-section-container centered">
+      <h3>Basic tk-api-behavior Demo</h3>
+      <demo-api action="find"></demo-api>
+      <button type="button" onclick="handleClick" name="button">Click To Send A Request</button>
+    </div>
+
+    <script type="text/javascript">
+      window.handleClick = function() {
+        document.querySelector('demo-api').do();
+      };
+    </script>
+
+  </body>
+</html>

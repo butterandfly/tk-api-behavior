@@ -1,0 +1,21 @@
+language: node_js
+sudo: required
+dist: trusty
+node_js: stable
+addons:
+  apt:
+    sources:
+    - google-chrome
+    packages:
+    - google-chrome-stable
+cache:
+  directories:
+  - bower_components
+  - node_modules
+before_script:
+- npm install -g bower web-component-tester
+- npm install
+- bower install
+script:
+- npm run lint
+- xvfb-run npm run test
