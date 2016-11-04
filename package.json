@@ -1,13 +1,13 @@
 {
   "name": "tk-api-behavior",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "",
   "main": ".eslintrc.js",
   "directories": {
     "test": "test"
   },
   "scripts": {
-    "test": "wct -l chrome",
+    "test": "wct -l chrome test/*.test.html",
     "lint": "./node_modules/eslint/bin/eslint.js test/**/*.html demo/**/*.html ./*.html"
   },
   "author": "butterandfly",

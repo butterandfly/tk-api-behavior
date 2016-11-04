@@ -1,0 +1,30 @@
+<link rel="import" href="../../polymer/polymer.html">
+<link rel="import" href="../tk-api-behavior.html">
+
+<dom-module id="api-implement">
+  <template>
+    <style>
+      :host {
+        display: block;
+      }
+    </style>
+
+  </template>
+  <script>
+    (function() {
+      'use strict';
+
+      Polymer({
+        is: 'api-implement',
+
+        behaviors: [
+          Polymer.tkApiBehavior
+        ],
+
+        get actionMeta() {
+          return this.createRestfulActionMeta('table');
+        }
+      });
+    })();
+  </script>
+</dom-module>

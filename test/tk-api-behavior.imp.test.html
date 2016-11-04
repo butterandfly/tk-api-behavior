@@ -1,0 +1,99 @@
+<html>
+  <head>
+    <meta name="viewport" content="width=device-width, minimum-scale=1.0, initial-scale=1.0, user-scalable=yes">
+    <title>TkApiBehavior Implement</title>
+
+    <script src="../../webcomponentsjs/webcomponents-lite.js"></script>
+    <script src="../../web-component-tester/browser.js"></script>
+
+    <!-- Step 1: import the element to test -->
+    <link rel="import" href="./api-implement.html">
+
+  </head>
+  <body>
+
+  <test-fixture id="basic">
+    <template>
+      <api-implement></api-implement>
+    </template>
+  </test-fixture>
+
+  <script>
+    suite('tkApiBehavior implement test', function() {
+      let api;
+      let server;
+
+      setup(function() {
+        api = fixture('basic');
+
+        server = sinon.fakeServer.create();
+      });
+
+      teardown(() => {
+        server.restore();
+      });
+
+      test('"iron-ajax" created', function() {
+        let ironAjax = api.ironAjax;
+        assert.ok(ironAjax);
+        assert.equal(ironAjax.is, 'iron-ajax');
+      });
+
+      test('Bind "loading" property to "iron-ajax"', done => {
+        assert.notOk(api.loading);
+
+        let ironAjax = api.ironAjax;
+        ironAjax.url = '/test';
+        ironAjax.generateRequest();
+
+        window.setTimeout(() => {
+          assert.ok(api.loading);
+          done();
+        }, 1);
+      });
+
+      test('Bind "lastResponse" property to "iron-ajax"', done => {
+        assert.notOk(api.lastResponse);
+
+        let ironAjax = api.ironAjax;
+        ironAjax.url = '/test';
+        ironAjax.generateRequest();
+
+        server.respondWith(
+          'GET',
+          '/test',
+          [200, {'Content-Type': 'application/json'}, JSON.stringify({message: 'success'})]
+        );
+        server.respond();
+
+        window.setTimeout(() => {
+          assert.ok(api.lastResponse);
+          assert.equal(api.lastResponse.message, 'success');
+          done();
+        }, 1);
+      });
+
+      test('Bind "lastError" property to "iron-ajax"', done => {
+        assert.notOk(api.lastError);
+
+        let ironAjax = api.ironAjax;
+        ironAjax.url = '/test';
+        ironAjax.generateRequest();
+
+        server.respondWith(
+          'GET',
+          '/test',
+          [401, {'Content-Type': 'application/json'}, JSON.stringify({message: 'failed'})]
+        );
+        server.respond();
+
+        window.setTimeout(() => {
+          assert.ok(api.lastError);
+          done();
+        }, 1);
+      });
+    });
+  </script>
+
+  </body>
+</html>

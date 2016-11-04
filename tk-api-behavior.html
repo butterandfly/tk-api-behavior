@@ -1,4 +1,5 @@
-<link rel="import" href="../../../bower_components/polymer/polymer.html">
+<link rel="import" href="../polymer/polymer.html">
+<link rel="import" href="../iron-ajax/iron-ajax.html">
 
 <!--
 ## `tk-api-behavior`
@@ -112,21 +113,35 @@ Key是action名，Value必须是一个数组，该数组标明了其行为。
 
     },
 
-    listeners: {
-      'ajax.response': '_onResponse',
-      'ajax.error': '_onError'
+    ready() {
+      // 创建iron-ajax并添加
+      let ironAjax = document.createElement('iron-ajax');
+      Polymer.dom(this.root).appendChild(ironAjax);
+
+      // 监听loading，response及error
+      this.listen(ironAjax, 'loading-changed', '_handleLoadingChanged');
+      this.listen(ironAjax, 'response', '_onResponse');
+      this.listen(ironAjax, 'error', '_onError');
     },
 
+    /**
+     * 得到apiConfig
+     * @return {Object} apiConfig api设置
+     */
     get apiConfig() {
       return window[this.configKey];
     },
 
     /**
      * 得到元素内部的`<iron-ajax>`。必须将iron-ajax的id设置为'ajax'
-     * @return {HTMLElement} ironAjax元素
+     * @return {HTMLElement} ironAjax ironAjax元素
      */
     get ironAjax() {
       return this.$$('iron-ajax');
+    },
+
+    _handleLoadingChanged() {
+      this.loading = this.ironAjax.loading;
     },
 
     /**
@@ -163,12 +178,16 @@ Key是action名，Value必须是一个数组，该数组标明了其行为。
 
     // 请求出错时，触发`tk-api-error`事件。
     _onError: function(event) {
+      this.lastError = this.ironAjax.lastError;
+
       var err = event.detail;
       this.fire('tk-api-error', err, {bubbles: false});
     },
 
     // 请求成功时，触发`tk-api-response`事件。
     _onResponse: function(event) {
+      this.lastResponse = this.ironAjax.lastResponse;
+
       let msg = event.detail;
       this.fire('tk-api-response', msg, {bubbles: false});
     },
@@ -261,7 +280,7 @@ Key是action名，Value必须是一个数组，该数组标明了其行为。
       let urlTpl = destructed.urlTpl;
       let exp = destructed.exp;
 
-      let ajax = this.$.ajax;
+      let ajax = this.ironAjax;
       ajax.method = destructed.method;
 
       if (typeof exp === 'function') {

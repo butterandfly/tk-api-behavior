@@ -19,7 +19,6 @@
         imp = Object.create(Polymer.tkApiBehavior);
         let ajax = {generateRequest: () => {}};
         imp.configKey = 'TkApiConfig';
-        imp.$ = {ajax: ajax};
         imp.$$ = function() {
           return ajax;
         };
@@ -103,7 +102,7 @@
           age: 16
         };
 
-        let ajax = imp.$.ajax;
+        let ajax = imp.ironAjax;
         let mockAjax = sinon.mock(ajax);
         mockAjax.expects('generateRequest').once().returns(function() {});
 
@@ -123,7 +122,7 @@
           id: 'someid'
         };
 
-        let ajax = imp.$.ajax;
+        let ajax = imp.ironAjax;
 
         imp.do();
         assert.notOk(ajax.body);
@@ -137,7 +136,7 @@
           ajax.body = 'testbody';
         }]};
 
-        let ajax = imp.$.ajax;
+        let ajax = imp.ironAjax;
 
         imp.do();
         assert.equal(ajax.body, 'testbody');
@@ -151,7 +150,7 @@
           ajax.url = '/newurl';
         };
 
-        let ajax = imp.$.ajax;
+        let ajax = imp.ironAjax;
 
         imp.do();
         assert.notOk(ajax.body);
